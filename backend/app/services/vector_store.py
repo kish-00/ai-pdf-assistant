@@ -3,7 +3,8 @@ from typing import Optional
 
 from langchain_community.vectorstores import FAISS
 from langchain_community.docstore.document import Document
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_community.embeddings import OllamaEmbeddings
+from langchain_community.chat_models import ChatOllama
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -47,12 +48,12 @@ class VectorStoreService:
 
     def __init__(self):
         if not hasattr(self, "_initialized"):
-            self._embeddings = OpenAIEmbeddings()
-            self._text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000,
-                chunk_overlap=200,
-                separators=["\n\n", "\n", ". ", " ", ""],
-            )
+        self._embeddings = OllamaEmbeddings(model="llama3")
+        self._text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            separators=["\n\n", "\n", ". ", " ", ""],
+        )
             self._initialized = True
 
     def index_document(self, doc_id: str, text: str) -> None:
@@ -90,7 +91,7 @@ class VectorStoreService:
                 "sources": [],
             }
 
-        llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo")
+        llm = ChatOllama(model="llama3", temperature=0)
         chain = load_qa_chain(llm, chain_type="stuff", prompt=QA_PROMPT)
         response = chain({"input_documents": docs, "question": question})
 
@@ -111,7 +112,7 @@ class VectorStoreService:
         text = self._raw_texts[doc_id]
         truncated = text[:8000]
 
-        llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo")
+        llm = ChatOllama(model="llama3", temperature=0)
         chain = load_qa_chain(llm, chain_type="stuff", prompt=SUMMARY_PROMPT)
         response = chain(
             {"input_documents": [Document(page_content=truncated)], "question": "Summarize"}
