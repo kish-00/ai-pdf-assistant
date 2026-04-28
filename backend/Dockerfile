@@ -15,10 +15,11 @@ COPY . .
 
 RUN mkdir -p /data/uploads
 
-# Pre-pull the model during build (start daemon, wait, then pull)
+# Pre-pull the models during build (start daemon, wait, then pull)
 RUN set -eux; \
     ollama serve & \
     sleep 5; \
-    ollama pull llama2:7b
+    ollama pull nomic-embed-text; \
+    ollama pull tinyllama
 
 CMD ["sh", "-c", "ollama serve & sleep 3 && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
