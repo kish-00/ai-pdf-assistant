@@ -1,13 +1,14 @@
 import os
-from typing import Optional
+from typing import Optional, List
 
 from langchain_community.vectorstores import FAISS
 from langchain_community.docstore.document import Document
-from langchain_community.embeddings import HuggingFaceInferenceEmbeddings
 from langchain_community.llms import HuggingFaceHub
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+import requests
+import numpy as np
 
 
 QA_PROMPT = PromptTemplate(
@@ -36,6 +37,25 @@ Summary:""",
 )
 
 
+class HFEmbeddings:
+    """Custom embeddings using HuggingFace Inference API."""
+    def __init__(self, model="sentence-transformers/all-MiniLM-L6-v2", api_token: Optional[str] = None):
+        self.model = model
+        self.api_token = api_token or os.getenv("HUGGINGFACEHUB_API_TOKEN")
+        self.api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{model}"
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        headers = {"Authorization": f"Bearer {self.api_token}"}
+        # The API expects a list of texts; we can send all at once.
+        response = requests.post(self.api_url, headers=headers, json={"inputs": texts})
+        response.raise_for_status()
+        # The response is a JSON list of embeddings (list of floats)
+        return response.json()
+
+    def embed_query(self, text: str) -> List[float]:
+        return self.embed_documents([text])[0]
+
+
 class VectorStoreService:
     _instance = None
     _stores: dict[str, FAISS] = {}
@@ -48,11 +68,7 @@ class VectorStoreService:
 
     def __init__(self):
         if not hasattr(self, "_initialized"):
-            # Use HuggingFace Inference API for embeddings
-            self._embeddings = HuggingFaceInferenceEmbeddings(
-                api_url="https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2",
-                api_key=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
-            )
+            self._embeddings = HFEmbeddings()
             self._text_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=1000,
                 chunk_overlap=200,
@@ -98,7 +114,6 @@ class VectorStoreService:
         llm = HuggingFaceHub(
             repo_id="google/flan-t5-large",
             model_kwargs={"temperature": 0, "max_length": 512},
-            huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
         )
         chain = load_qa_chain(llm, chain_type="stuff", prompt=QA_PROMPT)
         response = chain({"input_documents": docs, "question": question})
@@ -123,7 +138,6 @@ class VectorStoreService:
         llm = HuggingFaceHub(
             repo_id="google/flan-t5-large",
             model_kwargs={"temperature": 0, "max_length": 512},
-            huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
         )
         chain = load_qa_chain(llm, chain_type="stuff", prompt=SUMMARY_PROMPT)
         response = chain(
