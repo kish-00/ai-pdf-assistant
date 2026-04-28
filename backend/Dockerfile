@@ -14,5 +14,7 @@ COPY . .
 
 RUN mkdir -p /data/uploads
 
-# Start Ollama in background and pull model
-CMD ["sh", "-c", "ollama serve & sleep 5 && ollama pull llama3 && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# Pre-pull the model to avoid runtime delays
+RUN ollama pull llama2:7b
+
+CMD ["sh", "-c", "ollama serve & sleep 3 && uvicorn app.main:app --host 0.0.0.0 --port 8000"]

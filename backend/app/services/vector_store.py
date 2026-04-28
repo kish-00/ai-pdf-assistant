@@ -48,7 +48,7 @@ class VectorStoreService:
 
     def __init__(self):
         if not hasattr(self, "_initialized"):
-        self._embeddings = OllamaEmbeddings(model="llama3")
+        self._embeddings = OllamaEmbeddings(model="llama2:7b")
         self._text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=200,
@@ -91,7 +91,7 @@ class VectorStoreService:
                 "sources": [],
             }
 
-        llm = ChatOllama(model="llama3", temperature=0)
+        llm = ChatOllama(model="llama2:7b", temperature=0)
         chain = load_qa_chain(llm, chain_type="stuff", prompt=QA_PROMPT)
         response = chain({"input_documents": docs, "question": question})
 
@@ -112,7 +112,7 @@ class VectorStoreService:
         text = self._raw_texts[doc_id]
         truncated = text[:8000]
 
-        llm = ChatOllama(model="llama3", temperature=0)
+        llm = ChatOllama(model="llama2:7b", temperature=0)
         chain = load_qa_chain(llm, chain_type="stuff", prompt=SUMMARY_PROMPT)
         response = chain(
             {"input_documents": [Document(page_content=truncated)], "question": "Summarize"}
