@@ -18,4 +18,4 @@ RUN mkdir -p /data/uploads
 # Pre-pull the model to avoid runtime delays
 RUN ollama pull llama2:7b
 
-CMD ["sh", "-c", "ollama serve & sleep 3 && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "ollama serve & sleep 3 && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
