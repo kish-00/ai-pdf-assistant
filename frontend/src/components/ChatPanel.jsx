@@ -28,9 +28,19 @@ export function ChatPanel({ docId, docName, messages, addMessage }) {
         sources: result.sources,
       })
     } catch (err) {
+      let errorMsg = 'Sorry, something went wrong.'
+      if (err.message) {
+        if (err.message.includes('timeout') || err.message.includes('timed out')) {
+          errorMsg = 'The request timed out. The AI model is taking too long to respond. Please try again or ask a simpler question.'
+        } else if (err.message.includes('503') || err.message.includes('Model loading')) {
+          errorMsg = 'The AI model is currently loading. Please wait a moment and try again.'
+        } else {
+          errorMsg = `Error: ${err.message}`
+        }
+      }
       addMessage(docId, {
         role: 'assistant',
-        content: `Error: ${err.message}`,
+        content: errorMsg,
         sources: [],
       })
     } finally {
@@ -52,9 +62,19 @@ export function ChatPanel({ docId, docName, messages, addMessage }) {
         sources: [],
       })
     } catch (err) {
+      let errorMsg = 'Sorry, something went wrong while generating the summary.'
+      if (err.message) {
+        if (err.message.includes('timeout') || err.message.includes('timed out')) {
+          errorMsg = 'Summary generation timed out. The document may be too long. Please try again.'
+        } else if (err.message.includes('503') || err.message.includes('Model loading')) {
+          errorMsg = 'The AI model is currently loading. Please wait and try again.'
+        } else {
+          errorMsg = `Error: ${err.message}`
+        }
+      }
       addMessage(docId, {
         role: 'assistant',
-        content: `Error: ${err.message}`,
+        content: errorMsg,
         sources: [],
       })
     } finally {
