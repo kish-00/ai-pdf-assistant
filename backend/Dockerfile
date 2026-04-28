@@ -15,9 +15,6 @@ COPY . .
 
 RUN mkdir -p /data/uploads
 
-# Pre-pull models
-RUN ollama pull nomic-embed-text && ollama pull tinyllama
-
 EXPOSE 8000
 
 CMD ["sh", "-c", "ollama serve & sleep 3 && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
