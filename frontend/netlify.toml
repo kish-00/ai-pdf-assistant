@@ -13,7 +13,7 @@
   status = 200
 
 [context.production.environment]
-  VITE_API_URL = "https://ai-pdf-backend.up.railway.app"
+  VITE_API_URL = "https://humorous-success-production.up.railway.app"
 
 [context.deploy-preview.environment]
   VITE_API_URL = ""
