@@ -1,8 +1,9 @@
 FROM python:3.11-slim
 
-# Install Ollama
+# Install Ollama dependencies
 RUN apt-get update && apt-get install -y \
     curl \
+    zstd \
     && curl -fsSL https://ollama.com/install.sh | sh
 
 WORKDIR /app
