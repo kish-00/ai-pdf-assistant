@@ -3,8 +3,8 @@ from typing import Optional
 
 from langchain_community.vectorstores import FAISS
 from langchain_community.docstore.document import Document
-from langchain_community.embeddings import OllamaEmbeddings
-from langchain_community.chat_models import ChatOllama
+from langchain_community.embeddings import HuggingFaceInferenceEmbeddings
+from langchain_community.llms import HuggingFaceHub
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -48,12 +48,16 @@ class VectorStoreService:
 
     def __init__(self):
         if not hasattr(self, "_initialized"):
-        self._embeddings = OllamaEmbeddings(model="nomic-embed-text")
-        self._text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
-            separators=["\n\n", "\n", ". ", " ", ""],
-        )
+            # Use HuggingFace Inference API for embeddings
+            self._embeddings = HuggingFaceInferenceEmbeddings(
+                api_url="https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2",
+                api_key=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
+            )
+            self._text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000,
+                chunk_overlap=200,
+                separators=["\n\n", "\n", ". ", " ", ""],
+            )
             self._initialized = True
 
     def index_document(self, doc_id: str, text: str) -> None:
@@ -91,7 +95,11 @@ class VectorStoreService:
                 "sources": [],
             }
 
-        llm = ChatOllama(model="tinyllama", temperature=0)
+        llm = HuggingFaceHub(
+            repo_id="google/flan-t5-large",
+            model_kwargs={"temperature": 0, "max_length": 512},
+            huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
+        )
         chain = load_qa_chain(llm, chain_type="stuff", prompt=QA_PROMPT)
         response = chain({"input_documents": docs, "question": question})
 
@@ -112,7 +120,11 @@ class VectorStoreService:
         text = self._raw_texts[doc_id]
         truncated = text[:8000]
 
-        llm = ChatOllama(model="tinyllama", temperature=0)
+        llm = HuggingFaceHub(
+            repo_id="google/flan-t5-large",
+            model_kwargs={"temperature": 0, "max_length": 512},
+            huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
+        )
         chain = load_qa_chain(llm, chain_type="stuff", prompt=SUMMARY_PROMPT)
         response = chain(
             {"input_documents": [Document(page_content=truncated)], "question": "Summarize"}

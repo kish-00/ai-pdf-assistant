@@ -9,6 +9,7 @@ restartPolicyMaxRetries = 10
 
 [env]
 ASYNC_SQLALCHEMY = "true"
+HUGGINGFACEHUB_API_TOKEN = "YOUR_HUGGINGFACE_TOKEN_HERE"
 
 [volume]
 name = "data"
