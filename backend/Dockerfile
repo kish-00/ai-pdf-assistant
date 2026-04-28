@@ -1,10 +1,10 @@
-FROM python:3.11-slim
+FROM ollama/ollama:latest
 
-# Install Ollama dependencies
+# Install Python and pip
 RUN apt-get update && apt-get install -y \
-    curl \
-    zstd \
-    && curl -fsSL https://ollama.com/install.sh | sh
+    python3 \
+    python3-pip \
+    && ln -s /usr/bin/python3 /usr/bin/python
 
 WORKDIR /app
 
@@ -15,11 +15,9 @@ COPY . .
 
 RUN mkdir -p /data/uploads
 
-# Pre-pull the models during build (start daemon, wait, then pull)
-RUN set -eux; \
-    ollama serve & \
-    sleep 5; \
-    ollama pull nomic-embed-text; \
-    ollama pull tinyllama
+# Pre-pull models
+RUN ollama pull nomic-embed-text && ollama pull tinyllama
+
+EXPOSE 8000
 
 CMD ["sh", "-c", "ollama serve & sleep 3 && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
