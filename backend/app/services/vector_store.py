@@ -8,7 +8,7 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import requests
-import numpy as np
+import time
 
 
 QA_PROMPT = PromptTemplate(
@@ -38,19 +38,41 @@ Summary:""",
 
 
 class HFEmbeddings:
-    """Custom embeddings using HuggingFace Inference API."""
-    def __init__(self, model="sentence-transformers/all-MiniLM-L6-v2", api_token: Optional[str] = None):
+    """Custom embeddings using HuggingFace Inference API with retry logic."""
+    def __init__(self, model="sentence-transformers/all-MiniLM-L6-v2", api_token: Optional[str] = None, max_retries: int = 3):
         self.model = model
         self.api_token = api_token or os.getenv("HUGGINGFACEHUB_API_TOKEN")
         self.api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{model}"
+        self.max_retries = max_retries
+        self.headers = {"Authorization": f"Bearer {self.api_token}"} if self.api_token else {}
+
+    def _call_with_retry(self, payload: dict) -> Optional[list]:
+        """Make API call with exponential backoff retry."""
+        if not self.api_token:
+            raise ValueError("HUGGINGFACEHUB_API_TOKEN is not set")
+
+        for attempt in range(self.max_retries):
+            try:
+                response = requests.post(self.api_url, headers=self.headers, json=payload, timeout=30)
+                if response.status_code == 200:
+                    return response.json()
+                elif response.status_code == 503:  # Model loading
+                    wait = (attempt + 1) * 5  # 5, 10, 15 seconds
+                    time.sleep(wait)
+                else:
+                    response.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                if attempt == self.max_retries - 1:
+                    raise RuntimeError(f"Failed to get embeddings after {self.max_retries} retries: {e}")
+                time.sleep((attempt + 1) * 2)
+        return None
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        headers = {"Authorization": f"Bearer {self.api_token}"}
-        # The API expects a list of texts; we can send all at once.
-        response = requests.post(self.api_url, headers=headers, json={"inputs": texts})
-        response.raise_for_status()
-        # The response is a JSON list of embeddings (list of floats)
-        return response.json()
+        # Bulk embed all texts at once (API supports batch)
+        result = self._call_with_retry({"inputs": texts})
+        if result is None:
+            raise RuntimeError("Failed to get embeddings from HuggingFace after retries")
+        return result
 
     def embed_query(self, text: str) -> List[float]:
         return self.embed_documents([text])[0]
@@ -111,22 +133,28 @@ class VectorStoreService:
                 "sources": [],
             }
 
-        llm = HuggingFaceHub(
-            repo_id="google/flan-t5-large",
-            model_kwargs={"temperature": 0, "max_length": 512},
-        )
-        chain = load_qa_chain(llm, chain_type="stuff", prompt=QA_PROMPT)
-        response = chain({"input_documents": docs, "question": question})
+        try:
+            llm = HuggingFaceHub(
+                repo_id="google/flan-t5-large",
+                model_kwargs={"temperature": 0, "max_length": 512},
+            )
+            chain = load_qa_chain(llm, chain_type="stuff", prompt=QA_PROMPT)
+            response = chain({"input_documents": docs, "question": question})
 
-        sources = list({
-            f"Page {doc.metadata.get('page', 'unknown')}"
-            for doc in docs
-        })
+            sources = list({
+                f"Page {doc.metadata.get('page', 'unknown')}"
+                for doc in docs
+            })
 
-        return {
-            "answer": response["output_text"],
-            "sources": sources,
-        }
+            return {
+                "answer": response["output_text"],
+                "sources": sources,
+            }
+        except Exception as e:
+            return {
+                "answer": f"Sorry, I encountered an error while processing your question: {str(e)}. Please try again.",
+                "sources": [],
+            }
 
     def summarize_document(self, doc_id: str) -> Optional[str]:
         if doc_id not in self._raw_texts:
@@ -135,16 +163,18 @@ class VectorStoreService:
         text = self._raw_texts[doc_id]
         truncated = text[:8000]
 
-        llm = HuggingFaceHub(
-            repo_id="google/flan-t5-large",
-            model_kwargs={"temperature": 0, "max_length": 512},
-        )
-        chain = load_qa_chain(llm, chain_type="stuff", prompt=SUMMARY_PROMPT)
-        response = chain(
-            {"input_documents": [Document(page_content=truncated)], "question": "Summarize"}
-        )
-
-        return response["output_text"]
+        try:
+            llm = HuggingFaceHub(
+                repo_id="google/flan-t5-large",
+                model_kwargs={"temperature": 0, "max_length": 512},
+            )
+            chain = load_qa_chain(llm, chain_type="stuff", prompt=SUMMARY_PROMPT)
+            response = chain(
+                {"input_documents": [Document(page_content=truncated)], "question": "Summarize"}
+            )
+            return response["output_text"]
+        except Exception as e:
+            return f"Unable to generate summary: {str(e)}"
 
     def remove_document(self, doc_id: str) -> None:
         self._stores.pop(doc_id, None)
