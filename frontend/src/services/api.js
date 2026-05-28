@@ -20,7 +20,7 @@ export async function uploadDocument(file) {
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   try {
-    const response = await fetch(`${API_BASE}/upload`, {
+    const response = await fetch(`${API_BASE}/pdf/upload`, {
       method: 'POST',
       body: formData,
       signal: controller.signal,
@@ -41,14 +41,18 @@ export async function askQuestion(docId, question) {
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   try {
-    const response = await fetch(`${API_BASE}/chat/${docId}`, {
+    const response = await fetch(`${API_BASE}/chat/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question }),
+      body: JSON.stringify({ doc_id: docId, question }),
       signal: controller.signal,
     })
     clearTimeout(timeout)
-    return handleResponse(response)
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Query failed' }))
+      throw new Error(error.detail || 'Query failed')
+    }
+    return response.json()
   } catch (err) {
     clearTimeout(timeout)
     if (err.name === 'AbortError') {
@@ -63,12 +67,16 @@ export async function summarizeDocument(docId) {
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   try {
-    const response = await fetch(`${API_BASE}/summarize/${docId}`, {
+    const response = await fetch(`${API_BASE}/chat/summarize/${docId}`, {
       method: 'POST',
       signal: controller.signal,
     })
     clearTimeout(timeout)
-    return handleResponse(response)
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Summarization failed' }))
+      throw new Error(error.detail || 'Summarization failed')
+    }
+    return response.json()
   } catch (err) {
     clearTimeout(timeout)
     if (err.name === 'AbortError') {
@@ -79,45 +87,8 @@ export async function summarizeDocument(docId) {
 }
 
 export async function getDocuments() {
-  const response = await fetch(`${API_BASE}/documents`)
-  return handleResponse(response)
-}
-
-  return response.json()
-}
-
-export async function askQuestion(docId, question) {
-  const response = await fetch(`${API_BASE}/chat/ask`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ doc_id: docId, question }),
-  })
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Query failed' }))
-    throw new Error(error.detail || 'Query failed')
-  }
-
-  return response.json()
-}
-
-export async function summarizeDocument(docId) {
-  const response = await fetch(`${API_BASE}/chat/summarize/${docId}`, {
-    method: 'POST',
-  })
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Summarization failed' }))
-    throw new Error(error.detail || 'Summarization failed')
-  }
-
-  return response.json()
-}
-
-export async function listDocuments() {
   const response = await fetch(`${API_BASE}/pdf/documents`)
-  if (!response.ok) throw new Error('Failed to list documents')
-  return response.json()
+  return handleResponse(response)
 }
 
 export async function deleteDocument(docId) {

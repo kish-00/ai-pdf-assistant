@@ -4,7 +4,7 @@
 
 [[redirects]]
   from = "/api/*"
-  to = ":splat"
+  to = "https://humorous-success-production.up.railway.app/api/:splat"
   status = 200
 
 [[redirects]]
