@@ -1,7 +1,7 @@
 import os
 from typing import Optional, List
 
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 from openai import OpenAI
 from langchain_community.vectorstores import FAISS
 from langchain_community.docstore.document import Document
@@ -29,15 +29,13 @@ Summary:"""
 
 class LocalEmbeddings:
     def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
-        self.model = SentenceTransformer(model_name)
+        self.model = TextEmbedding(model_name)
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        embeddings = self.model.encode(texts, show_progress_bar=False)
-        return embeddings.tolist()
+        return list(self.model.embed(texts))
 
     def embed_query(self, text: str) -> List[float]:
-        embedding = self.model.encode(text, show_progress_bar=False)
-        return embedding.tolist()
+        return list(self.model.embed(text))[0]
 
 
 class VectorStoreService:
