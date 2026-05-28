@@ -31,6 +31,9 @@ class LocalEmbeddings:
     def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
         self.model = TextEmbedding(model_name)
 
+    def __call__(self, text: str) -> List[float]:
+        return list(self.model.embed(text))[0]
+
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         return list(self.model.embed(texts))
 
